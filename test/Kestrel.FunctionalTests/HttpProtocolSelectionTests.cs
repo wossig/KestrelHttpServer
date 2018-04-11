@@ -11,12 +11,13 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http2;
 using Microsoft.AspNetCore.Testing;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Testing;
 using Moq;
 using Xunit;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.FunctionalTests
 {
-    public class HttpProtocolSelectionTests
+    public class HttpProtocolSelectionTests : LoggedTest
     {
         [Fact]
         public Task Server_NoProtocols_Error()
@@ -46,6 +47,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.FunctionalTests
         private async Task TestSuccess(HttpProtocols serverProtocols, string request, string expectedResponse)
         {
             var builder = TransportSelector.GetWebHostBuilder()
+                .ConfigureServices(AddTestLogging)
                 .UseKestrel(options =>
                 {
                     options.Listen(IPAddress.Loopback, 0, listenOptions =>
@@ -71,14 +73,8 @@ namespace Microsoft.AspNetCore.Server.Kestrel.FunctionalTests
         private async Task TestError<TException>(HttpProtocols serverProtocols, string expectedErrorMessage)
             where TException : Exception
         {
-            var logger = new TestApplicationErrorLogger();
-            var loggerProvider = new Mock<ILoggerProvider>();
-            loggerProvider
-                .Setup(provider => provider.CreateLogger(It.IsAny<string>()))
-                .Returns(logger);
-
             var builder = TransportSelector.GetWebHostBuilder()
-                .ConfigureLogging(loggingBuilder => loggingBuilder.AddProvider(loggerProvider.Object))
+                .ConfigureServices(AddTestLogging)
                 .UseKestrel(options => options.Listen(IPAddress.Loopback, 0, listenOptions =>
                 {
                     listenOptions._isHttp2Supported = true;
@@ -96,9 +92,9 @@ namespace Microsoft.AspNetCore.Server.Kestrel.FunctionalTests
                 }
             }
 
-            Assert.Single(logger.Messages, message => message.LogLevel == LogLevel.Error
+            Assert.Single(TestSink.Writes, message => message.LogLevel == LogLevel.Error
                 && message.EventId.Id == 0
-                && message.Message == expectedErrorMessage);
+                && message.Formatter(message.State, message.Exception) == expectedErrorMessage);
         }
     }
 }
