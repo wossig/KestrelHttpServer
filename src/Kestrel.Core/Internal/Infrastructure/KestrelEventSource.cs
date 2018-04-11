@@ -46,8 +46,8 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure
             WriteEvent(
                 1,
                 connectionId,
-                localEndPoint,
-                remoteEndPoint
+                localEndPoint ?? string.Empty,
+                remoteEndPoint ?? string.Empty
             );
         }
 
